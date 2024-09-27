@@ -9,8 +9,13 @@ BOT_AVATAR = "🤖"
 MODEL_LIST = ["mistral:latest", "gemma2:latest", "llama3.1:latest"] 
 EMBEDDING_MODEL_LIST = ["nomic-embed-text", "chroma/all-minilm-l6-v2-f32", "mxbai-embed-large"]
 
+BASE_URL = "http://localhost:8080"
+
 if "llm" not in st.session_state:
-    st.session_state.llm = OllamaLLM(model='mistral:latest')
+    st.session_state.llm = "mistral:latest"
+
+if "embedding" not in st.session_state:
+    st.session_state.embedding = "nomic-embed-text"
 
 # Load chat history from shelve file
 def load_chat_history():
@@ -25,12 +30,14 @@ def save_chat_history(messages):
 
 
 def change_model():
-    st.session_state.llm = OllamaLLM(model=st.session_state.model_selection)
+    st.session_state.llm = st.session_state.model_selection
     st.session_state.messages = []
     save_chat_history([])
 
 def change_embedding():
-    print(st.session_state.embedding_selection)
+    st.session_state.embedding = st.session_state.embedding_selection
+    st.session_state.messages = []
+    save_chat_history([])
 
 # Initialize or load chat history
 if "messages" not in st.session_state:
@@ -65,11 +72,15 @@ if prompt := st.chat_input(""):
 
     with st.chat_message("assistant", avatar=BOT_AVATAR):
         message_placeholder = st.empty()
-        # full_response = st.session_state.llm.invoke(prompt)
-        full_response = requests.get(f"http://localhost:8080/ask_question?question={prompt}").json()
-        full_response = full_response["response"]
-        message_placeholder.markdown(full_response)
-    st.session_state.messages.append({"role": "assistant", "content": full_response})
+        payload = {
+            "question": prompt,
+            "model_name": st.session_state.llm,
+            "embedding_model_name": st.session_state.embedding
+        }
+        response = requests.post(f"{BASE_URL}/ask_question", json=payload)
+        response = response.json()["model_response"]
+        message_placeholder.markdown(response)
+    st.session_state.messages.append({"role": "assistant", "content": response})
 
 save_chat_history(st.session_state.messages)
 
