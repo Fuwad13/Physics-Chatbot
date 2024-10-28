@@ -1,7 +1,6 @@
 import time
 import requests
 import streamlit as st
-from langchain_ollama import OllamaLLM
 import shelve
 
 USER_AVATAR = "👤"
@@ -10,7 +9,7 @@ BOT_AVATAR = "🤖"
 MODEL_LIST = ["llama3.2:latest", "llama3.1:latest", "mistral:latest", "gemma2:latest"] 
 EMBEDDING_MODEL_LIST = ["nomic-embed-text", "chroma/all-minilm-l6-v2-f32", "mxbai-embed-large"]
 
-BASE_URL = "http://localhost:8080"
+API_BASE_URL = "http://localhost:8080"
 
 def load_chat_history():
     with shelve.open("chat_history") as db:
@@ -98,7 +97,7 @@ if prompt := st.chat_input(""):
             "embedding_model": st.session_state.embedding
         }
         with st.spinner("Thinking..."):
-            response = requests.post(f"{BASE_URL}/ask_question", json=payload)
+            response = requests.post(f"{API_BASE_URL}/ask_question", json=payload)
             response = response.json()
             model_response = response["model_response"]
         # message_placeholder.markdown(response)
@@ -106,7 +105,12 @@ if prompt := st.chat_input(""):
         for i in range(len(model_response)):
             message_placeholder.markdown(model_response[:i+1])
             time.sleep(type_speed) 
-        st.success(f"db query time: {response['db_query_time']:.4f} seconds, model invoke time: {response['model_invoke_time']:.4f} seconds", icon="⏱️")     
+        st.success(f"db query time: {response['db_query_time']:.4f} seconds, model invoke time: {response['model_invoke_time']:.4f} seconds", icon="⏱️")
+        # st.caption(f"db query time: {response['db_query_time']:.4f} seconds, model invoke time: {response['model_invoke_time']:.4f} seconds")
+        sentiment_mapping = [":material/thumb_down:", ":material/thumb_up:"]
+        selected = st.feedback("thumbs")
+        if selected is not None:
+            st.markdown(f"You selected: {sentiment_mapping[selected]}")    
     st.session_state.messages.append({"role": "assistant", "content": model_response})
 
 save_chat_history(st.session_state.messages)
