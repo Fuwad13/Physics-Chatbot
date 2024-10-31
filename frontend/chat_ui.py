@@ -97,7 +97,7 @@ if prompt := st.chat_input(""):
             "embedding_model": st.session_state.embedding
         }
         with st.spinner("Thinking..."):
-            response = requests.post(f"{API_BASE_URL}/ask_question", json=payload)
+            response = requests.post(f"{API_BASE_URL}/ask_question_v2", json=payload)
             response = response.json()
             model_response = response["model_response"]
         # message_placeholder.markdown(response)
@@ -105,7 +105,7 @@ if prompt := st.chat_input(""):
         for i in range(len(model_response)):
             message_placeholder.markdown(model_response[:i+1])
             time.sleep(type_speed) 
-        st.success(f"db query time: {response['db_query_time']:.4f} seconds, model invoke time: {response['model_invoke_time']:.4f} seconds", icon="⏱️")
+        # st.success(f"db query time: {response['db_query_time']:.4f} seconds, model invoke time: {response['model_invoke_time']:.4f} seconds", icon="⏱️")
         # st.caption(f"db query time: {response['db_query_time']:.4f} seconds, model invoke time: {response['model_invoke_time']:.4f} seconds")
         sentiment_mapping = [":material/thumb_down:", ":material/thumb_up:"]
         selected = st.feedback("thumbs")

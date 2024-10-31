@@ -1,0 +1,22 @@
+[
+    {
+        "question": "Explain why studying physics is essential in understanding natural events and in technological advancements.",
+        "ideal_answer": "Studying physics is essential because it helps us understand the fundamental laws governing the natural world, such as the laws of motion and energy conservation. Physics provides the foundation for advancements in various fields, including engineering, medical science, and environmental studies, and it enables the development of technology, like communication systems, medical instruments, and space exploration tools."
+    },
+    {
+        "question": "What is meant by 'rest' and 'motion' in physics?",
+        "ideal_answer": "In physics, an object is said to be at rest if its position does not change over time relative to a chosen reference point. Conversely, an object is in motion if its position changes with time concerning the reference point. Both concepts are relative, as there is no absolute rest or motion; it depends on the observer's frame of reference."
+    },
+    {
+        "question": "Describe the difference between scalar and vector quantities with examples.",
+        "ideal_answer": "Scalar quantities have only magnitude, such as distance, speed, and mass. Vector quantities have both magnitude and direction, such as displacement, velocity, and force. For example, if you say '5 meters,' it is a scalar, but if you say '5 meters north,' it becomes a vector."
+    },
+    {
+        "question": "What are periodic and vibratory motions, and how do they differ?",
+        "ideal_answer": "Periodic motion is a motion that repeats at regular intervals, like the Earth's orbit around the Sun. Vibratory motion is a type of periodic motion where an object moves back and forth in opposite directions, like the motion of a pendulum. The key difference is that vibratory motion involves oscillation around an equilibrium position."
+    },
+    {
+        "question": "Why are measurements essential in physics, and what are some common errors encountered during measurement?",
+        "ideal_answer": "Measurements are crucial in physics as they allow for accurate quantification of physical quantities, leading to better understanding and application of physical laws. Common errors include random errors (due to unpredictable variations), instrumental errors (from imperfections in measuring tools), and personal errors (caused by observer mistakes)."
+    }
+]

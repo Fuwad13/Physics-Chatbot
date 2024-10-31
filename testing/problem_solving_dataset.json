@@ -1,0 +1,22 @@
+[
+    {
+        "question": "A car accelerates from rest at a rate of 2 m/s^2. What is its velocity after 5 seconds?",
+        "ideal_answer": "Using the formula v = u + at, where u = 0, a = 2 m/s^2, and t = 5 seconds: v = 0 + (2 * 5) = 10 m/s. So, the car's velocity after 5 seconds is 10 m/s."
+    },
+    {
+        "question": "Calculate the force required to move a 5 kg object with an acceleration of 3 m/s^2.",
+        "ideal_answer": "Using Newton\u2019s second law, F = ma, where m = 5 kg and a = 3 m/s^2: F = 5 * 3 = 15 N. Therefore, the force required is 15 N."
+    },
+    {
+        "question": "A light wave has a frequency of 5 * 10^14 Hz and a wavelength of 6 * 10^-7 m. What is the speed of the wave?",
+        "ideal_answer": "Using the wave speed formula, v = f * \u03bb, where f = 5 * 10^14 Hz and \u03bb = 6 * 10^-7 m: v = 5 * 10^14 * 6 * 10^-7 = 3 * 10^8 m/s. Thus, the speed of the wave is 3 * 10^8 m/s, which is the speed of light in a vacuum."
+    },
+    {
+        "question": "If a force of 20 N is applied to move a block horizontally on a surface with a friction coefficient of 0.2, what is the frictional force?",
+        "ideal_answer": "The frictional force f is given by f = \u03bc * N. Here, \u03bc = 0.2 and assuming N (normal force) equals the weight W = mg for a mass m. If m = 20/9.8 \u2248 2.04 kg: f = 0.2 * 2.04 * 9.8 \u2248 4 N. The frictional force is approximately 4 N."
+    },
+    {
+        "question": "What is the kinetic energy of a 2 kg object moving at a speed of 3 m/s?",
+        "ideal_answer": "The kinetic energy KE = 1/2 * mv^2, where m = 2 kg and v = 3 m/s: KE = 1/2 * 2 * 3^2 = 9 J. So, the kinetic energy is 9 J."
+    }
+]

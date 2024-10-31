@@ -9,6 +9,10 @@ EMBEDDING_MODEL_LIST = ["nomic-embed-text", "chroma/all-minilm-l6-v2-f32", "mxba
 
 API_BASE_URL = "http://localhost:8080"
 
+FACTUAL_QA_DATASET_FILE = "E:\\Physics-Chatbot\\testing\\factual_qa_dataset.json"
+EXPLANATION_DATASET_FILE = "E:\\Physics-Chatbot\\testing\\explanation_dataset.json"
+PROBLEM_SOLVING_DATASET_FILE = "E:\\Physics-Chatbot\\testing\\problem_solving_dataset.json"
+
 
 def calculate_bleu_score(dataset_file: str):
     bleu_scores = []
@@ -105,8 +109,16 @@ def calculate_metrics(dataset_file: str):
         "average_rouge": average_rouge
     }
 
-# calculate_metrics("E:\\Physics-Chatbot\\testing\\dataset.json")
-# calculate_bleu_score("E:\\Physics-Chatbot\\testing\\dataset.json")
+
+print("================================================")
+print("Metric results for Factual QA dataset:")
+calculate_metrics(FACTUAL_QA_DATASET_FILE)
+print("================================================")
+print("Metric results for Explanation dataset:")
+calculate_metrics(EXPLANATION_DATASET_FILE)
+print("================================================")
+print("Metric results for Problem Solving dataset:")
+calculate_metrics(PROBLEM_SOLVING_DATASET_FILE)
     
     
     
