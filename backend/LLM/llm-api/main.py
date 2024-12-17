@@ -5,6 +5,7 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_chroma import Chroma
+from langchain_core.documents import Document
 from langchain_ollama import OllamaEmbeddings
 from langchain_ollama import OllamaLLM
 from langchain_core.messages import HumanMessage, AIMessage
@@ -82,11 +83,27 @@ collection_name = {
 
 chat_history = []
 
+def create_session_context_db():
+    chroma_client = chromadb.HttpClient(host='localhost', port=8000)
+    model = OllamaLLM(model="llama3.2:latest")
+    try:
+        chroma_client.delete_collection("session_context_db")
+        print("Deleted session context db")
+    except:
+        pass
+    collection  = Chroma(client=chroma_client, collection_name="session_context_db", 
+                         embedding_function=OllamaEmbeddings(model="nomic-embed-text"), create_collection_if_not_exists=True)
+    collection.reset_collection()
+
+create_session_context_db()
 
 class AskQuestion(BaseModel):
     question: str
     llm_model: str
     embedding_model: str
+
+class ConversationContext(BaseModel):
+    conversation: str
 
 app = FastAPI()
 
@@ -113,8 +130,10 @@ async def ask_question(req: AskQuestion):
     dbq_start = time.time()
     results = collection.similarity_search(query=question, k = 5)
     dbq_end = time.time()
-    print(f"Using collection: {collection_name[embedding_model_name]}, embedding model: {embedding_model_name}, llm model: {model_name}")
-    print(f"Database query time: {(dbq_end - dbq_start):.6f} seconds")
+    # print(f"Using collection: {collection_name[embedding_model_name]}, embedding model: {embedding_model_name}, llm model: {model_name}")
+    # print(f"Database query time: {(dbq_end - dbq_start):.6f} seconds")
+    # print("====================================")
+    # print(results)
     context = "\n\n".join([doc.page_content for doc in results])
     prompt  = ChatPromptTemplate.from_template(PROMPT_TEMPLATE).format(context=context, question=question)
     model_invoke_start = time.time()
@@ -149,7 +168,7 @@ async def ask_question_v2(req: AskQuestion):
             ("human", "{input}"),
             (
                 "human",
-                PROMPT_TEMPLATE_TEST,
+                PROMPT_TEMPLATE,
             )
         ]
     )
@@ -161,9 +180,9 @@ async def ask_question_v2(req: AskQuestion):
     )
     # raw_prompt = PromptTemplate.from_template(PROMPT_TEMPLATE)
     full_chat_history = "\n".join([f"User: {msg.content}" if isinstance(msg, HumanMessage) else f"Assistant: {msg.content}" for msg in chat_history])
-    PROMPT_TEMPLATE_TEST_TEMP = PROMPT_TEMPLATE_TEST
-    PROMPT_TEMPLATE_TEST_TEMP = f"Here is the chat history between you(assistant) and me(human)\n### Chat history:\n{full_chat_history}\n{PROMPT_TEMPLATE_TEST_TEMP}"
-    raw_prompt = PromptTemplate.from_template(PROMPT_TEMPLATE_TEST_TEMP)
+    PROMPT_TEMPLATE_TEMP = PROMPT_TEMPLATE
+    PROMPT_TEMPLATE_TEMP = f"Here is the chat history between you(assistant) and me(human)\n### Chat history:\n{full_chat_history}\n{PROMPT_TEMPLATE_TEMP}"
+    raw_prompt = PromptTemplate.from_template(PROMPT_TEMPLATE_TEMP)
 
     document_chain = create_stuff_documents_chain(model, raw_prompt)
 
@@ -181,8 +200,8 @@ async def ask_question_v2(req: AskQuestion):
     return {"model_response": result["answer"]}
 
 
-@app.post("/ask_question_v2")
-async def ask_question_v2(req: AskQuestion):
+@app.post("/ask_question_enhanced")
+async def ask_question_enhanced(req: AskQuestion):
     """
     Ask a question to the chatbot and get context aware response
     params:
@@ -197,45 +216,47 @@ async def ask_question_v2(req: AskQuestion):
     embedding_model_name = req.embedding_model
     model = OllamaLLM(model=model_name)
     collection  = Chroma(client=chroma_client, collection_name=collection_name[embedding_model_name], embedding_function=OllamaEmbeddings(model=embedding_model_name), create_collection_if_not_exists=False)
-    retriever = collection.as_retriever(
-        search_type="similarity_score_threshold",
-        search_kwargs={"k": 5, "score_threshold": 0.1},
-    )
-    retriever_promt = ChatPromptTemplate.from_messages(
-        [
-            MessagesPlaceholder(variable_name="chat_history"),
-            ("human", "{input}"),
-            (
-                "human",
-                PROMPT_TEMPLATE_TEST,
-            )
-        ]
-    )
+    temp = f"Classify the following user input as a physics related question or conversation context or general conversation. You should give me only the classification result \
+        from this list: ['physics', 'context', 'general', 'uncertain'] based on the user input. user input: {question}"
+    class_result = model.invoke(temp)
+    # print(question)
+    # print(f"Classification result: {class_result}")
+    session_context = Chroma(client=chroma_client, collection_name="session_context_db", embedding_function=OllamaEmbeddings(model="nomic-embed-text"), create_collection_if_not_exists=False)
+    ssdb_results = session_context.similarity_search(query=question, k = 10)
+    # ssdb_results.sort(key=lambda x: x.id, reverse=False)
+    relevant_context = "\n\n".join([doc.page_content for doc in ssdb_results])
+    if class_result.count("general") or class_result.count("uncertain"):
+        prompt = f"You are a helpful assistant specialized in answering physics-related questions and engaging in general conversation\
+            . Here is some contexts from the conversation between you and\
+            the user, context: {relevant_context}. You must ignore the contexts for this prompt for most cases. Generate a brief general response\
+                  to the following user input. Also ask them if they need help about\
+              physics related question. user input: {question}"
+        result = model.invoke(prompt)
+        return {"model_response": result}
+    elif class_result=="context":
+        prompt = f"You are a helpful assistant specialized in answering physics-related questions and engaging in general conversation\
+            . Here is some contexts from the conversation between you and\
+            the user, context: {relevant_context}. Generate a brief response\
+                  to the following user input.Use information from the context if needed. user input: {question}"
+        result = model.invoke(prompt)
+        return {"model_response": result}
+    else:
+        results = collection.similarity_search(query=question, k = 5)
+        context = "\n\n".join([doc.page_content for doc in results])
+        prompt  = f"You are a helpful assistant specialized in answering physics-related questions and engaging in general conversation\
+            . Here is some contexts from the conversation between you and\
+            the user, context: {relevant_context}.Use information from the context if needed.\
+                 If the user asks a physics-related question, you will be provided with relevant information retrieved from a physics textbook\
+                    . Your answer **must be based on this retrieved content** and no external knowledge should be used unless explicitly instructed.\
+                        render mathematical formulas with latex if needed. Retrieved context: {context}\n user input: {question}"
+        response = model.invoke(prompt)
+        return {"model_response": response}
 
-    history_aware_retriever = create_history_aware_retriever(
-        llm=model,
-        retriever=retriever,
-        prompt=retriever_promt
-    )
-    # raw_prompt = PromptTemplate.from_template(PROMPT_TEMPLATE)
-    full_chat_history = "\n".join([f"User: {msg.content}" if isinstance(msg, HumanMessage) else f"Assistant: {msg.content}" for msg in chat_history])
-    full_chat_history = model.invoke(f"Here is a chat history between you(assistant) and me(human)\n### Chat history:\n{full_chat_history}\nCan you summarize it and include the key information and keep the human questions as is?")
-    PROMPT_TEMPLATE_TEST_TEMP = PROMPT_TEMPLATE_TEST
-    PROMPT_TEMPLATE_TEST_TEMP = f"Here is the chat history between you(assistant) and me(human)\n### Chat history:\n{full_chat_history}\n{PROMPT_TEMPLATE_TEST_TEMP}"
-    raw_prompt = PromptTemplate.from_template(PROMPT_TEMPLATE_TEST_TEMP)
-
-    document_chain = create_stuff_documents_chain(model, raw_prompt)
-
-    retrieval_chain = create_retrieval_chain(
-        history_aware_retriever,
-        document_chain,
-    )
-
-    result = retrieval_chain.invoke({"input": question})
-
-    chat_history.append(HumanMessage(content=question))
-    chat_history.append(AIMessage(content=result["answer"]))
-    print(chat_history)
-
-    return {"model_response": result["answer"]}
-
+@app.post("/save_session_context")
+async def save_session_context(convo : ConversationContext):
+    chroma_client = chromadb.HttpClient(host='localhost', port=8000)
+    collection  = Chroma(client=chroma_client, collection_name="session_context_db", embedding_function=OllamaEmbeddings(model="nomic-embed-text"), create_collection_if_not_exists=False)
+    cnt = len(collection.get()['documents'])
+    doc = Document(page_content=convo.conversation, metadata={}, id=f"session_context_{cnt}")
+    collection.add_documents(documents=[doc], ids=[f"session_context_{cnt}"])
+    return {"status": "saved"}

@@ -97,7 +97,7 @@ if prompt := st.chat_input(""):
             "embedding_model": st.session_state.embedding
         }
         with st.spinner("Thinking..."):
-            response = requests.post(f"{API_BASE_URL}/ask_question_v2", json=payload)
+            response = requests.post(f"{API_BASE_URL}/ask_question_enhanced", json=payload)
             response = response.json()
             model_response = response["model_response"]
         # message_placeholder.markdown(response)
@@ -112,6 +112,8 @@ if prompt := st.chat_input(""):
         if selected is not None:
             st.markdown(f"You selected: {sentiment_mapping[selected]}")    
     st.session_state.messages.append({"role": "assistant", "content": model_response})
+    this_interaction = f"USER : {prompt}\nASSISTANT : {model_response}"
+    requests.post(f"{API_BASE_URL}/save_session_context", json={"conversation": this_interaction})
 
 save_chat_history(st.session_state.messages)
 save_current_model_names(st.session_state.llm, st.session_state.embedding)
