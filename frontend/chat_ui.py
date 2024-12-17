@@ -49,6 +49,22 @@ if "llm" not in st.session_state:
 if "embedding" not in st.session_state:
     load_current_embedding_model()
 
+# math_render = """
+# <script type="text/javascript" async
+#   src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/MathJax.js?config=TeX-MML-AM_CHTML">
+# </script>
+# """
+
+math_render = """
+<script type="text/javascript" async
+  src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/MathJax.js?config=TeX-MML-AM_CHTML">
+</script>
+<script>
+function renderMath() {
+  MathJax.Hub.Queue(["Typeset", MathJax.Hub]);
+}
+</script>
+"""
 
 # hide the deploy button
 st.markdown(
@@ -60,6 +76,8 @@ st.markdown(
         </style>
         """, unsafe_allow_html=True
     )
+
+
 
 st.title("Physics Chatbot")
 st.write("This is a chatbot that can answer questions related to your physics textbook. You can ask questions about physics and the chatbot will try to answer them.")
@@ -76,12 +94,13 @@ with st.sidebar:
     if st.button("Delete Chat History"):
         st.session_state.messages = []
         save_chat_history([])
+        requests.post(f"{API_BASE_URL}/reset_session_context")
         
 
 for message in st.session_state.messages:
     avatar = USER_AVATAR if message["role"] == "user" else BOT_AVATAR
     with st.chat_message(message["role"], avatar=avatar):
-        st.markdown(message["content"])
+        st.markdown(math_render + message["content"], unsafe_allow_html=True)
 
 
 if prompt := st.chat_input(""):
@@ -97,14 +116,23 @@ if prompt := st.chat_input(""):
             "embedding_model": st.session_state.embedding
         }
         with st.spinner("Thinking..."):
-            response = requests.post(f"{API_BASE_URL}/ask_question_enhanced", json=payload)
+            response = requests.post(f"{API_BASE_URL}/ask_question_enhanced_v2", json=payload)
             response = response.json()
             model_response = response["model_response"]
         # message_placeholder.markdown(response)
         type_speed = 0.01
-        for i in range(len(model_response)):
-            message_placeholder.markdown(model_response[:i+1])
-            time.sleep(type_speed) 
+        model_response_latex = math_render + model_response
+        for i in range(len(model_response_latex)):
+            message_placeholder.markdown(model_response_latex[:i+1], unsafe_allow_html=True)
+            time.sleep(type_speed)
+        st.components.v1.html(
+            """
+            <script>
+            renderMath();
+            </script>
+            """,
+            height=0,  # Set height to 0 since it's just a trigger
+        )
         # st.success(f"db query time: {response['db_query_time']:.4f} seconds, model invoke time: {response['model_invoke_time']:.4f} seconds", icon="⏱️")
         # st.caption(f"db query time: {response['db_query_time']:.4f} seconds, model invoke time: {response['model_invoke_time']:.4f} seconds")
         sentiment_mapping = [":material/thumb_down:", ":material/thumb_up:"]

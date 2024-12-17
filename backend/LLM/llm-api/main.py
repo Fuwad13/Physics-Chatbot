@@ -1,3 +1,4 @@
+import shelve
 import time
 import asyncio
 import chromadb
@@ -243,12 +244,88 @@ async def ask_question_enhanced(req: AskQuestion):
     else:
         results = collection.similarity_search(query=question, k = 5)
         context = "\n\n".join([doc.page_content for doc in results])
+        # prompt  = f"You are a helpful assistant specialized in answering physics-related questions and engaging in general conversation\
+        #     . Here is some contexts from the conversation between you and\
+        #     the user, context: {relevant_context}.Use information from the context if needed.\
+        #          If the user asks a physics-related question, you will be provided with relevant information retrieved from a physics textbook\
+        #             . Your answer **must be based on this retrieved content** and no external knowledge should be used unless explicitly instructed.\
+        #                 render mathematical formulas with latex if needed. Retrieved context: {context}\n user input: {question}"
         prompt  = f"You are a helpful assistant specialized in answering physics-related questions and engaging in general conversation\
             . Here is some contexts from the conversation between you and\
             the user, context: {relevant_context}.Use information from the context if needed.\
                  If the user asks a physics-related question, you will be provided with relevant information retrieved from a physics textbook\
-                    . Your answer **must be based on this retrieved content** and no external knowledge should be used unless explicitly instructed.\
-                        render mathematical formulas with latex if needed. Retrieved context: {context}\n user input: {question}"
+                    . You can use this information to get document help to answer the question.\
+                        render mathematical formulas with latex if needed. Retrieved documents: {context}\n user input: {question}"
+        response = model.invoke(prompt)
+        return {"model_response": response}
+    
+@app.post("/ask_question_enhanced_v2")
+async def ask_question_enhanced_v2(req: AskQuestion):
+    """
+    Ask a question to the chatbot and get context aware response
+    params:
+    - question: str: The question to ask
+    - llm_model: str: The LLM model to use
+    - embedding_model: str: The embedding model to use
+    returns a dict containing the model response, db query time and model invoke time
+    """
+    chroma_client = chromadb.HttpClient(host='localhost', port=8000)
+    question = req.question
+    model_name = req.llm_model
+    embedding_model_name = req.embedding_model
+    model = OllamaLLM(model=model_name)
+    collection  = Chroma(client=chroma_client, collection_name=collection_name[embedding_model_name], embedding_function=OllamaEmbeddings(model=embedding_model_name), create_collection_if_not_exists=False)
+    temp = f"Classify the following user input as a physics related question or conversation context or general conversation. You should give me only the classification result \
+        from this list: ['physics', 'context', 'general', 'uncertain'] based on the user input. user input: {question}"
+    class_result = model.invoke(temp)
+    # print(question)
+    # print(f"Classification result: {class_result}")
+    session_context = Chroma(client=chroma_client, collection_name="session_context_db", embedding_function=OllamaEmbeddings(model="nomic-embed-text"), create_collection_if_not_exists=False)
+    ssdb_results = session_context.similarity_search(query=question, k = 10)
+    # ssdb_results.sort(key=lambda x: x.id, reverse=False)
+    relevant_context = "\n\n".join([doc.page_content for doc in ssdb_results])
+    # raw_context
+    ch_path = "E:\\Physics-Chatbot\\frontend\\chat_history"
+    with shelve.open(ch_path) as ch:
+        messages = ch.get("messages", [])
+
+    raw_context="";
+    for message in messages:
+        if message["role"]=="user":
+            raw_context += f"User: {message['content']}\n"
+        else:
+            raw_context += f"Assistant: {message['content']}\n"
+
+    if class_result.count("general") or class_result.count("uncertain"):
+        prompt = f"You are a helpful assistant specialized in answering physics-related questions and engaging in general conversation\
+            . Here is some contexts from the conversation between you and\
+            the user, context: {raw_context}. You must ignore the contexts for this prompt for most cases. Generate a brief general response\
+                  to the following user input. Also ask them if they need help about\
+              physics related question. user input: {question}"
+        result = model.invoke(prompt)
+        return {"model_response": result}
+    elif class_result=="context":
+        prompt = f"You are a helpful assistant specialized in answering physics-related questions and engaging in general conversation\
+            . Here is some contexts from the conversation between you and\
+            the user, context: {raw_context}. Generate a brief response\
+                  to the following user input.Use information from the context if needed. user input: {question}"
+        result = model.invoke(prompt)
+        return {"model_response": result}
+    else:
+        results = collection.similarity_search(query=question, k = 5)
+        context = "\n\n".join([doc.page_content for doc in results])
+        # prompt  = f"You are a helpful assistant specialized in answering physics-related questions and engaging in general conversation\
+        #     . Here is some contexts from the conversation between you and\
+        #     the user, context: {relevant_context}.Use information from the context if needed.\
+        #          If the user asks a physics-related question, you will be provided with relevant information retrieved from a physics textbook\
+        #             . Your answer **must be based on this retrieved content** and no external knowledge should be used unless explicitly instructed.\
+        #                 render mathematical formulas with latex if needed. Retrieved context: {context}\n user input: {question}"
+        prompt  = f"You are a helpful assistant specialized in answering physics-related questions and engaging in general conversation\
+            . Here is some contexts from the conversation between you and\
+            the user, context: {raw_context}.Use information from the context if needed.\
+                 If the user asks a physics-related question, you will be provided with relevant information retrieved from a physics textbook\
+                    . You can use this information to get document help to answer the question.\
+                        render mathematical formulas with latex if needed. Retrieved documents: {context}\n user input: {question}"
         response = model.invoke(prompt)
         return {"model_response": response}
 
@@ -260,3 +337,10 @@ async def save_session_context(convo : ConversationContext):
     doc = Document(page_content=convo.conversation, metadata={}, id=f"session_context_{cnt}")
     collection.add_documents(documents=[doc], ids=[f"session_context_{cnt}"])
     return {"status": "saved"}
+
+@app.post("/reset_session_context")
+async def reset_session_context():
+    chroma_client = chromadb.HttpClient(host='localhost', port=8000)
+    collection  = Chroma(client=chroma_client, collection_name="session_context_db", embedding_function=OllamaEmbeddings(model="nomic-embed-text"), create_collection_if_not_exists=False)
+    collection.reset_collection()
+    return {"status": "reset"}
